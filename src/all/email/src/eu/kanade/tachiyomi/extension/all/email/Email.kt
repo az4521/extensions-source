@@ -48,12 +48,16 @@ class Email : ConfigurableSource, HttpSource() {
     private val pass by lazy { getPrefPass() }
     private val host by lazy { getPrefHost() }
     private val port by lazy { getPrefPort() }
+    private val maxEmails by lazy { getPrefMaxEmails() }
     private val ssl by lazy { getPrefSSL() }
+    private val inboxFolder by lazy { getPrefInboxFolder() }
 
     private fun getPrefMail(): String = preferences.getString(SETTING_MAIL, DEFAULT_MAIL)!!
     private fun getPrefPass(): String = preferences.getString(SETTING_PASS, DEFAULT_PASS)!!
     private fun getPrefHost(): String = preferences.getString(SETTING_HOST, DEFAULT_HOST)!!
     private fun getPrefPort(): Int = try { preferences.getString(SETTING_PORT, DEFAULT_PORT.toString())!!.toInt() } catch (e: java.lang.Exception) { 993 }
+    private fun getPrefMaxEmails(): Int = try { preferences.getString(SETTING_MAX_EMAILS, DEFAULT_MAX_EMAILS.toString())!!.toInt() } catch (e: java.lang.Exception) { 50 }
+    private fun getPrefInboxFolder(): String = preferences.getString(SETTING_INBOX_FOLDER, DEFAULT_INBOX_FOLDER)!!
     private fun getPrefSSL(): Boolean = preferences.getBoolean(SETTING_SSL, DEFAULT_SSL)
 
     private val preferences: SharedPreferences by lazy {
@@ -114,7 +118,7 @@ class Email : ConfigurableSource, HttpSource() {
         )
         val store = session.getStore("imap")
         store.connect(host, port, mail, pass)
-        val inbox = store.getFolder("INBOX")
+        val inbox = store.getFolder(inboxFolder)
         inbox.open(Folder.READ_ONLY)
 
         val message = getText(inbox.getMessage(number))
@@ -190,9 +194,9 @@ class Email : ConfigurableSource, HttpSource() {
         )
         val store = session.getStore("imap")
         store.connect(host, port, mail, pass)
-        val inbox = store.getFolder("INBOX")
+        val inbox = store.getFolder(inboxFolder)
         inbox.open(Folder.READ_ONLY)
-        val chapters = inbox.getMessages(inbox.messageCount - 50, inbox.messageCount).map {
+        val chapters = inbox.getMessages(maxOf(1, inbox.messageCount - maxEmails), maxOf(1, inbox.messageCount)).map {
             SChapter.create().apply {
                 chapter_number = it.messageNumber.toFloat()
                 name = it.subject
@@ -258,7 +262,8 @@ class Email : ConfigurableSource, HttpSource() {
         )
 
         screen.addPreference(screen.editTextPreference(SETTING_MAIL, DEFAULT_MAIL, mail))
-        screen.addPreference(screen.editTextPreference(SETTING_PASS, DEFAULT_PASS, pass, isPassword = true))
+        screen.addPreference(screen.editTextPreference(SETTING_PASS, DEFAULT_PASS, pass, isPassword = false))
+        screen.addPreference(screen.editTextPreference(SETTING_INBOX_FOLDER, DEFAULT_INBOX_FOLDER, inboxFolder))
     }
 
     companion object {
@@ -267,13 +272,17 @@ class Email : ConfigurableSource, HttpSource() {
         private const val SETTING_PASS = "Password"
         private const val SETTING_HOST = "IMAP Host"
         private const val SETTING_PORT = "IMAP Port"
+        private const val SETTING_MAX_EMAILS = "Maximum Emails"
         private const val SETTING_SSL = "Use SSL"
+        private const val SETTING_INBOX_FOLDER = "Inbox Folder Name"
 
         private const val DEFAULT_MAIL = ""
         private const val DEFAULT_PASS = ""
         private const val DEFAULT_HOST = "imap.gmail.com"
         private const val DEFAULT_PORT = 993
+        private const val DEFAULT_MAX_EMAILS = 50
         private const val DEFAULT_SSL = true
+        private const val DEFAULT_INBOX_FOLDER = "INBOX"
 
         const val imageWidth = 1500
         const val imageVerticalMargin = 200
